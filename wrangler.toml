@@ -1,3 +1,10 @@
 name = "hmb-proxy"
 compatibility_date = "2025-06-18"
 main = "worker.js"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+
+
