@@ -1,17 +1,3 @@
-// worker.js
-
-const paypalClientId1 = 'AUynoLXPmJ1DL0ImI8';
-const paypalClientId2 = 'wgfHsvC6cSRckvBCk01jh3PUqAVwri1ssFvYXhQCN-a-U-4h40YWPiHBNTlpvA';
-const paypalSecret1 = 'EE1jwfq7Hu9cReKQMj-Ci6U';
-const paypalSecret2 = 'r0svoD7VkpIiq2bYCeUppz8B46t23V25HUKSQIMA1U75MXGMG34Ka4q7Y';
-
-const paypalClientId = paypalClientId1 + paypalClientId2;
-const paypalSecret = paypalSecret1 + paypalSecret2;
-
-// Gmail credentials
-const GMAIL_USER = 'hmb05092006@gmail.com';
-const GMAIL_PASSWORD = 'z u o p m w n k i e e m d g x y';
-
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -23,10 +9,10 @@ async function handleRequest(request) {
       const email = formData.get('email');
 
       if (validateEmail(email)) {
-        // Store in KV (you'll need to create a KV namespace named SUBSCRIBERS)
+        // Store in KV
         await SUBSCRIBERS.put(email, new Date().toISOString());
         
-        // Send confirmation email using MailChannels
+        // Send confirmation email
         await sendConfirmationEmail(email);
         
         return new Response('Merci ! Tu recevras bientôt nos nouvelles.', {
@@ -43,7 +29,6 @@ async function handleRequest(request) {
     }
   }
 
-  // For GET requests, serve the HTML page
   return new Response(getHTML(), {
     headers: {
       'Content-Type': 'text/html;charset=UTF-8',
@@ -62,7 +47,7 @@ async function sendConfirmationEmail(toEmail) {
         to: [{ email: toEmail }],
       }],
       from: {
-        email: GMAIL_USER,
+        email: 'hmb05092006@gmail.com',
         name: 'Hans Mbaya Newsletter'
       },
       subject: "Confirmation d'abonnement",
@@ -105,17 +90,10 @@ function getHTML() {
             <svg viewBox="0 0 24 24">
                 <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
             </svg>
-            NEWSLETTER PRO
+            NEWSLETTER HMB-TECH
         </h2>
 
-        <div class="payment-section">
-            <div class="price-tag">
-                <span style="color: var(--accent-color); font-weight: bold;">Abonnement Premium : 5$ / mois</span>
-            </div>
-            <div id="paypal-button-container"></div>
-        </div>
-
-        <form id="newsletter-form" style="display: none;">
+        <form id="newsletter-form">
             <div class="checkbox-group">
                 <input type="checkbox" id="daily" name="entry.1889021612" value="Hebdomadaire" class="checkbox-input" checked>
                 <label class="checkbox-wrapper" for="daily">
@@ -147,7 +125,6 @@ function getHTML() {
         © 2025 HMB-TECH –·– TOUS DROITS RÉSERVÉS
     </div>
 
-    <script src="https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD"></script>
     <script>
         ${getClientScript()}
     </script>
@@ -313,48 +290,11 @@ function getStyles() {
         font-size: 14px;
         font-weight: bold;
     }
-
-    .payment-section {
-        margin-bottom: 20px;
-        text-align: center;
-    }
-
-    .price-tag {
-        background: rgba(255, 215, 0, 0.1);
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-    }
   `;
 }
 
 function getClientScript() {
   return `
-    paypal.Buttons({
-        createOrder: function(data, actions) {
-            return actions.order.create({
-                purchase_units: [{
-                    amount: {
-                        value: '5.00'
-                    }
-                }]
-            });
-        },
-        onApprove: function(data, actions) {
-            return actions.order.capture().then(function(details) {
-                document.getElementById('newsletter-form').style.display = 'block';
-                document.querySelector('.payment-section').style.display = 'none';
-
-                const successMsg = document.createElement('div');
-                successMsg.style.color = 'var(--accent-color)';
-                successMsg.style.textAlign = 'center';
-                successMsg.style.marginBottom = '20px';
-                successMsg.innerHTML = 'Paiement réussi! Vous pouvez maintenant vous inscrire.';
-                document.getElementById('newsletter-form').prepend(successMsg);
-            });
-        }
-    }).render('#paypal-button-container');
-
     const newsletterForm = document.getElementById('newsletter-form');
     const emailInput = document.getElementById('email');
     const submitButton = document.getElementById('submit-button');
