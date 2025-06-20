@@ -1,4 +1,4 @@
- name = "newsletter-worker"
+name = "hmb-proxy"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
@@ -8,8 +8,6 @@ kv_namespaces = [
 ]
 
 [vars]
-# Variables d'environnement (optionnel si vous préférez les mettre directement dans le code)
-PAYPAL_CLIENT_ID = "AUynoLXPmJ1DL0ImI8wgfHsvC6cSRckvBCk01jh3PUqAVwri1ssFvYXhQCN-a-U-4h40YWPiHBNTlpvA"
 GMAIL_USER = "hmb05092006@gmail.com"
 
 # Configuration de l'environnement de développement
@@ -18,5 +16,4 @@ workers_dev = true
 
 # Configuration de l'environnement de production
 [env.production]
-workers_dev = false
-route = { pattern = "votre-domaine.com/newsletter/*", zone_id = "votre_zone_id" }
+workers_dev = true  # Changé à true pour utiliser workers.dev
