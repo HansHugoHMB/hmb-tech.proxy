@@ -7,25 +7,54 @@ async function handleRequest(request) {
     try {
       const formData = await request.formData();
       const email = formData.get('email');
+      const daily = formData.get('entry.1889021612') === 'Hebdomadaire';
+      const weekly = formData.get('entry.1185604264') === 'Quotidien';
 
       if (validateEmail(email)) {
-        // Store in KV
-        await SUBSCRIBERS.put(email, new Date().toISOString());
+        // Store in KV with preferences
+        await SUBSCRIBERS.put(email, JSON.stringify({
+          date: new Date().toISOString(),
+          preferences: {
+            daily,
+            weekly
+          }
+        }));
         
         // Send confirmation email
-        await sendConfirmationEmail(email);
+        await sendConfirmationEmail(email, { daily, weekly });
         
-        return new Response('Merci ! Tu recevras bientôt nos nouvelles.', {
-          headers: { 'Content-Type': 'text/plain' },
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Merci ! Tu recevras bientôt nos nouvelles.'
+        }), {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
         });
       }
       
-      return new Response('Adresse email invalide.', {
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Adresse email invalide.'
+      }), {
         status: 400,
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
       });
     } catch (error) {
-      return new Response('Erreur du serveur', { status: 500 });
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Erreur du serveur'
+      }), { 
+        status: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+      });
     }
   }
 
@@ -36,7 +65,12 @@ async function handleRequest(request) {
   });
 }
 
-async function sendConfirmationEmail(toEmail) {
+async function sendConfirmationEmail(toEmail, preferences) {
+  const frequencyText = preferences.daily && preferences.weekly ? 
+    'quotidienne et hebdomadaire' : 
+    preferences.daily ? 'quotidienne' : 
+    preferences.weekly ? 'hebdomadaire' : 'personnalisée';
+
   const send_request = new Request('https://api.mailchannels.net/tx/v1/send', {
     method: 'POST',
     headers: {
@@ -50,18 +84,36 @@ async function sendConfirmationEmail(toEmail) {
         email: 'hmb05092006@gmail.com',
         name: 'Hans Mbaya Newsletter'
       },
-      subject: "Confirmation d'abonnement",
+      subject: "Confirmation d'abonnement à la Newsletter HMB-TECH",
       content: [{
-        type: 'text/plain',
-        value: 'Merci pour ton inscription à la newsletter de Hans Mbaya !'
+        type: 'text/html',
+        value: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #0D1C40; text-align: center;">Merci pour ton inscription !</h1>
+            <p style="font-size: 16px; line-height: 1.5; color: #333;">
+              Salut,<br><br>
+              Merci de t'être inscrit(e) à la newsletter HMB-TECH avec une fréquence ${frequencyText}.
+              Tu recevras bientôt nos actualités et nos meilleurs conseils !
+            </p>
+            <div style="text-align: center; margin-top: 30px;">
+              <p style="color: #666; font-size: 14px;">
+                Pour te désabonner, réponds simplement à cet email avec "Désabonnement" en objet.
+              </p>
+            </div>
+          </div>
+        `
       }],
     }),
   });
 
   try {
-    await fetch(send_request);
+    const response = await fetch(send_request);
+    if (!response.ok) {
+      throw new Error('Failed to send email');
+    }
   } catch (e) {
     console.error('Failed to send email:', e);
+    throw e;
   }
 }
 
@@ -76,9 +128,7 @@ function getHTML() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Newsletter HMB-TECH</title>
-
-    <script src="https://hmb-tech-php.onrender.com/tracker.php"></script>
-    <img src="https://hmb-tech.onrender.com/tracker.php" style="display:none">
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/HansHugoHMB/HansHugoHMB/main/assets/Logo-circle.webp">
 
     <style>
         ${getStyles()}
@@ -117,7 +167,10 @@ function getHTML() {
             </div>
 
             <input type="email" class="email-input" id="email" name="entry.1899983470" placeholder="Votre adresse e-mail" required>
-            <button type="submit" class="submit-btn" id="submit-button">S'abonner</button>
+            <button type="submit" class="submit-btn" id="submit-button">
+                <span class="btn-text">S'abonner</span>
+                <div class="loader"></div>
+            </button>
         </form>
     </div>
 
@@ -138,6 +191,8 @@ function getStyles() {
         --primary-color: #0D1C40;
         --accent-color: #FFD700;
         --text-color: white;
+        --error-color: #ff4444;
+        --success-color: #00C851;
     }
 
     @keyframes float {
@@ -148,6 +203,10 @@ function getStyles() {
     @keyframes check {
         from { stroke-dashoffset: 24; }
         to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 
     body {
@@ -272,11 +331,47 @@ function getStyles() {
         font-size: 0.9rem;
         text-transform: uppercase;
         letter-spacing: 1px;
+        position: relative;
+        overflow: hidden;
     }
 
     .submit-btn:hover {
         transform: translateY(-2px);
         box-shadow: 0 5px 15px rgba(255, 215, 0, 0.2);
+    }
+
+    .submit-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-text {
+        transition: opacity 0.3s ease;
+    }
+
+    .loader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 20px;
+        height: 20px;
+        border: 3px solid var(--primary-color);
+        border-top-color: transparent;
+        border-radius: 50%;
+        opacity: 0;
+        display: none;
+        animation: spin 1s linear infinite;
+    }
+
+    .submit-btn.loading .btn-text {
+        opacity: 0;
+    }
+
+    .submit-btn.loading .loader {
+        opacity: 1;
+        display: block;
     }
 
     .copyright {
@@ -290,6 +385,32 @@ function getStyles() {
         font-size: 14px;
         font-weight: bold;
     }
+
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        transform: translateX(150%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .notification.success {
+        background-color: var(--success-color);
+    }
+
+    .notification.error {
+        background-color: var(--error-color);
+    }
+
+    .notification.show {
+        transform: translateX(0);
+    }
   `;
 }
 
@@ -299,36 +420,64 @@ function getClientScript() {
     const emailInput = document.getElementById('email');
     const submitButton = document.getElementById('submit-button');
 
+    function showNotification(message, type) {
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = \`notification \${type}\`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Force a reflow
+        notification.offsetHeight;
+        
+        // Show the notification
+        setTimeout(() => notification.classList.add('show'), 10);
+        
+        // Remove the notification after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
     newsletterForm.addEventListener('submit', async function(event) {
         event.preventDefault();
-        const originalPlaceholder = emailInput.placeholder;
         const formData = new FormData(this);
-
+        
+        // Show loading state
+        submitButton.classList.add('loading');
+        submitButton.disabled = true;
+        
         try {
             const response = await fetch('', {
                 method: 'POST',
                 body: formData
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                emailInput.value = 'Great, succès, *';
-                emailInput.style.color = 'var(--accent-color)';
-                emailInput.style.fontStyle = 'italic';
+                showNotification(data.message, 'success');
+                emailInput.value = '';
+                
+                // Reset checkboxes to checked state
+                document.getElementById('daily').checked = true;
+                document.getElementById('weekly').checked = true;
             } else {
-                throw new Error('Erreur lors de l\'envoi');
+                showNotification(data.message, 'error');
             }
         } catch (error) {
             console.error('Erreur:', error);
-            emailInput.value = 'Une erreur est survenue';
-            emailInput.style.color = 'red';
+            showNotification('Une erreur est survenue lors de la connexion au serveur', 'error');
+        } finally {
+            // Remove loading state
+            submitButton.classList.remove('loading');
+            submitButton.disabled = false;
         }
-
-        setTimeout(() => {
-            emailInput.value = '';
-            emailInput.style.color = '';
-            emailInput.style.fontStyle = '';
-            emailInput.placeholder = originalPlaceholder;
-        }, 3000);
     });
   `;
 }
