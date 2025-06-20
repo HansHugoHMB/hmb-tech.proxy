@@ -1,10 +1,22 @@
-name = "hmb-proxy"
-compatibility_date = "2025-06-18"
+ name = "newsletter-worker"
 main = "worker.js"
+compatibility_date = "2024-01-01"
 
-# wrangler.toml (wrangler v3.88.0^)
-[observability.logs]
-enabled = true
+# Configuration KV Namespace pour stocker les abonnés
+kv_namespaces = [
+  { binding = "SUBSCRIBERS", id = "votre_kv_namespace_id" }
+]
 
-[placement]
-mode = "smart" 
+[vars]
+# Variables d'environnement (optionnel si vous préférez les mettre directement dans le code)
+PAYPAL_CLIENT_ID = "AUynoLXPmJ1DL0ImI8wgfHsvC6cSRckvBCk01jh3PUqAVwri1ssFvYXhQCN-a-U-4h40YWPiHBNTlpvA"
+GMAIL_USER = "hmb05092006@gmail.com"
+
+# Configuration de l'environnement de développement
+[env.development]
+workers_dev = true
+
+# Configuration de l'environnement de production
+[env.production]
+workers_dev = false
+route = { pattern = "votre-domaine.com/newsletter/*", zone_id = "votre_zone_id" }
