@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 
 # Configuration KV Namespace pour stocker les abonnés
 kv_namespaces = [
-  { binding = "SUBSCRIBERS", id = "votre_kv_namespace_id" }
+  { binding = "SUBSCRIBERS", id = "24a58d372bd945e786f22d47c84c278c" }
 ]
 
 [vars]
